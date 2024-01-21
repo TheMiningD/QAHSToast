@@ -13,14 +13,6 @@ const port = process.env.PORT || 8080;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MySQL connection setup
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'admin', // Your MySQL username
-    password: 'admin', // Your MySQL password for the 'admin' user
-    database: 'qahs_toast'
-});
-
 connection.connect((err) => {
     if (err) throw err;
     console.log('Connected to MySQL Database.');
