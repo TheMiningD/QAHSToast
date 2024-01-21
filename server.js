@@ -1,7 +1,7 @@
 const express = require('express');
 const mysql = require('mysql');
 const connection = mysql.createConnection({
-  host: '/cloudsql/qahs-toast:us-central1:qahstoast',
+  host: 'qahs-toast:us-central1:qahstoast',
   user: process.env.SQL_USER,
   password: process.env.SQL_PASSWORD,
   database: process.env.SQL_DATABASE,
