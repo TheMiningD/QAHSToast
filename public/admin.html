@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - QAHS Toast</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding-top: 50px;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .container {
+            width: 60%;
+            border: 3px solid green;
+            padding: 20px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+            border-radius: 5px;
+            background-color: white;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .control-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.control-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        input[type="number"] {
+            padding: 10px;
+            margin-right: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        /* Responsive styling */
+        @media (max-width: 600px) {
+            .container, .control-panel {
+                width: 80%;
+            }
+        }
+        .notes-column {
+    max-width: 200px; /* Adjust as necessary */
+    word-wrap: break-word;
+}
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <div class="control-panel">
+        <div class="control-row">
+            <button id="toggleOrderTaking" class="button">Toggle Order Taking</button>
+        </div>
+        <div class="control-row">
+            <input type="number" id="orderReadyTime" placeholder="Order Ready Time (sec)" />
+            <button id="updateOrderReadyTime" class="button">Update Time</button>
+        </div>
+    </div>
+    <table id="ordersTable">
+        <thead>
+        <tr>
+            <th>Order Number</th>
+            <th>Name</th>
+            <th>Items Ordered</th>
+            <th>Time</th>
+            <th>Notes</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Orders will be populated here via JavaScript -->
+        </tbody>
+    </table>
+    <div id="averageServeTimeContainer">
+        <h3>Average Serve Time (Last 5 Minutes): <span id="averageServeTime">Loading...</span> seconds</h3>
+    </div>
+    <div class="toast-type-manager">
+        <h2>Manage Toast Types</h2>
+        <div>
+            <input type="text" id="newToastType" placeholder="New Toast Type" />
+            <input type="text" id="newToastCode" placeholder="Toast Code" />
+            <button id="addToastTypeButton" class="button">Add Toast Type</button>
+        </div>
+        <div id="toastTypesList">
+            <!-- Toast types will be listed here -->
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // For /api/toggle-order-taking
+   document.getElementById('toggleOrderTaking').addEventListener('click', function() {
+    fetch('/api/toggle-order-taking', {
+        method: 'POST'
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => { throw new Error(text) });
+        }
+        return response.json();
+    })
+    .then(data => {
+        const orderTakingButton = document.getElementById('toggleOrderTaking');
+        if (data.newValue === '1') {
+            orderTakingButton.textContent = 'Disable Order Taking';
+        } else {
+            orderTakingButton.textContent = 'Enable Order Taking';
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+   // For /api/update-order-ready-time
+   document.getElementById('updateOrderReadyTime').addEventListener('click', function() {
+       const newTime = document.getElementById('orderReadyTime').value;
+       console.log(newTime);
+       fetch('/api/update-order-ready-time', {
+           method: 'POST',
+           headers: {
+               'Content-Type': 'application/json'
+           },
+           body: JSON.stringify({ newTime: newTime })
+       })
+       .then(response => {
+           if (!response.ok) {
+               return response.text().then(text => { throw new Error(text) });
+           }
+           return response.json();
+       })
+       .then(data => {
+           console.log(data);
+           alert('Order ready time updated');
+       })
+       .catch(error => console.error('Error:', error));
+   });
+function fetchOrderTakingState() {
+    fetch('/api/get-order-taking-state') // Replace with your actual API endpoint
+    .then(response => response.json())
+    .then(data => {
+        const orderTakingButton = document.getElementById('toggleOrderTaking');
+        if (data.value === '1') {
+            orderTakingButton.textContent = 'Disable Order Taking';
+        } else {
+            orderTakingButton.textContent = 'Enable Order Taking';
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Call this function on page load
+fetchOrderTakingState();
+
+function fetchAverageServeTime() {
+    fetch('/5min-average')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Round the average serve time to the nearest whole number
+        const averageServeTimeRounded = Math.round(data.averageServeTime);
+        document.getElementById('averageServeTime').textContent = averageServeTimeRounded;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('averageServeTime').textContent = 'Error fetching data';
+    });
+}
+
+// Call the function on page load
+fetchAverageServeTime();
+
+
+       // Fetch orders and populate the table
+function fetchOrders() {
+    fetch('/api/orders')
+    .then(response => response.json())
+    .then(orders => {
+        const ordersTableBody = document.getElementById('ordersTable').querySelector('tbody');
+        ordersTableBody.innerHTML = orders.map(order => {
+            // Calculate time since order
+            const orderTime = new Date(order.created_at);
+            const currentTime = new Date();
+            const timeSinceOrder = Math.min(Math.floor((currentTime - orderTime) / 1000), 999);
+
+            // Generate order details text
+            const itemsOrdered = order.order_details ? JSON.parse(order.order_details) : {};
+            const itemsText = Object.entries(itemsOrdered).map(([key, value]) => {
+                return key.includes('toastType') ? `${value} x ${itemsOrdered['quantity' + key.slice(9)]}` : '';
+            }).filter(text => text).join(', ');
+
+            // HTML for each row
+ return `
+        <tr>
+            <td>${order.id}</td>
+            <td>${order.name}</td>
+            <td>${itemsText}</td>
+            <td>${timeSinceOrder} sec</td>
+            <td class="notes-column">${order.notes || ''}</td>
+            <td><button class="serveOrder" data-order-id="${order.id}">Serve</button></td>
+        </tr>
+    `;
+}).join('');
+
+        // Attach event listeners to serve buttons
+        document.querySelectorAll('.serveOrder').forEach(button => {
+            button.addEventListener('click', function() {
+                serveOrder(this.getAttribute('data-order-id'));
+            });
+        });
+    })
+    .catch(error => console.error('Error:', error));
+}
+       fetchOrders(); // Initial fetch
+
+       // Serve an order
+       function serveOrder(orderId) {
+           fetch('/api/serve-order', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({ orderId })
+           })
+           .then(response => {
+               if (!response.ok) throw new Error('Network response was not ok');
+               return response.json();
+           })
+           .then(data => {
+               console.log(data);
+               fetchOrders(); // Re-fetch orders
+           })
+           .catch(error => console.error('Error:', error));
+       }
+
+document.getElementById('addToastTypeButton').addEventListener('click', () => {
+    const code = document.getElementById('newToastCode').value.trim();
+    const type = document.getElementById('newToastType').value.trim();
+    if (code === '' || type === '') {
+        alert('Please enter both the toast code and type.');
+        return;
+    }
+
+    fetch('/api/add-toast-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, type })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        fetchToastTypes(); // Refresh the list
+        document.getElementById('newToastCode').value = ''; // Clear the input fields
+        document.getElementById('newToastType').value = '';
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+
+function fetchToastTypes() {
+    fetch('/api/toast-types')
+    .then(response => response.json())
+    .then(toastTypes => {
+        const list = toastTypes.map(type => `
+            <div>${type.type} <button onclick="removeToastType(${type.id})">Remove</button></div>
+        `).join('');
+        document.getElementById('toastTypesList').innerHTML = list;
+    });
+}
+
+function removeToastType(id) {
+    fetch('/api/remove-toast-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        fetchToastTypes(); // Refresh the list
+    });
+}
+
+// Initial fetch of toast types
+fetchToastTypes();
+
+
+    setInterval(() => {
+    fetchOrders();
+    fetchAverageServeTime(); // If you also want to update the average serve time periodically
+}, 500); // Poll every 30 seconds, adjust as needed
+
+
+
+</script>
+</body>
+</html>

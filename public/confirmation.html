@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - QAHS Toast</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding-top: 50px;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .container {
+            width: 60%;
+            border: 3px solid green;
+            padding: 20px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+            border-radius: 5px;
+            background-color: white;
+            text-align: center; /* Ensure text is centered within the container */
+        }
+        .countdown {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .instructions, .order-summary {
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        /* Responsive styling */
+        @media (max-width: 600px) {
+            .container {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Your Order is Confirmed!</h1>
+    <p id="orderDetails">Fetching order details...</p>
+    <div id="orderSummary" class="order-summary">Order Summary:</div> <!-- Order summary will be added here -->
+    <div class="countdown">
+        <p>Your order will be ready in <span id="timer">60</span> seconds.</p>
+    </div>
+    <p class="instructions">
+        Please wait in front of the toast stand at the refectory to collect your order.
+    </p>
+    <a href="https://forms.gle/iNoRD4FrYDR5Cm1v6" class="button" target="_blank">Queue Music</a>
+</div>
+
+<script>
+    function startCountdown(duration, displayElement) {
+        var timer = duration, seconds;
+        var countdownInterval = setInterval(function () {
+            seconds = parseInt(timer, 10);
+
+            if (timer > 0) {
+                displayElement.textContent = `Your order will be ready in ${seconds} seconds.`;
+            } else {
+                clearInterval(countdownInterval);
+                displayElement.textContent = "Your toast is ready!";
+            }
+
+            timer--;
+        }, 1000);
+    }
+
+fetch('/api/get-order-ready-time')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch order ready time');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const timeInSeconds = parseInt(data.orderReadyTime, 10);
+            const countdownDisplay = document.querySelector('.countdown p');
+            startCountdown(timeInSeconds, countdownDisplay);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Fallback to default time or show error
+            const countdownDisplay = document.querySelector('.countdown p');
+            startCountdown(60, countdownDisplay); // Default to 60 seconds or handle error differently
+        });
+
+
+window.onload = function () {
+
+const urlParams = new URLSearchParams(window.location.search);
+const orderId = urlParams.get('orderId');
+document.getElementById('orderDetails').textContent = 'Order Number: ' + orderId;
+
+let toastTypes = {};
+
+function fetchAndSetToastTypes() {
+    fetch('/api/toast-types')
+    .then(response => response.json())
+    .then(data => {
+        toastTypes = data.reduce((acc, type) => {
+            acc[type.code] = type.type;
+            return acc;
+        }, {});
+    })
+    .catch(error => console.error('Failed to load toast types:', error));
+}
+
+// Call this function on page load
+fetchAndSetToastTypes();
+
+
+if (orderId) {
+            fetch('/api/order/' + orderId)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Order not found');
+                    }
+                    return response.json();
+                })
+                .then(order => {
+    const orderDetails = JSON.parse(order.order_details);
+    const summary = Object.keys(orderDetails)
+        .filter(key => key.startsWith('toastType'))
+        .map(key => {
+            const quantityKey = 'quantity' + key.slice(9);
+            const quantity = orderDetails[quantityKey];
+            const toastType = toastTypes[orderDetails[key]]; // Use full names
+            return `${quantity} x ${toastType}`; // Format: "3 x Just Butter"
+        })
+        .join('<br>'); // Each toast on a new line
+    document.getElementById('orderSummary').innerHTML = 'Order Summary:<br>' + summary;
+})
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('orderSummary').textContent = 'Error fetching order details.';
+                });
+        }
+    };
+</script>
+</body>
+</html>
