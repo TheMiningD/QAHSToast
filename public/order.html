@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Your Toast - QAHS Toast</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .container {
+            margin: auto;
+            width: 60%;
+            border: 3px solid green;
+            padding: 10px;
+        }
+        .submit-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            margin: 20px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .submit-button:hover {
+            background-color: #45a049;
+        }
+        .toast-order {
+            margin-bottom: 20px;
+        }
+        label, input, select {
+            margin: 5px;
+        }
+        .remove-button {
+            background-color: #f44336;
+            color: white;
+            padding: 5px 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<h1>Place Your Toast Order</h1>
+<div class="container">
+    <form id="orderForm">
+        <label for="name">First Name:</label><br>
+        <input type="text" id="name" name="name" required><br>
+
+        <div id="toastOrders">
+            <!-- Toast orders will be added here dynamically -->
+        </div>
+
+
+        <button type="button" id="addToastButton">Add Another Toast</button><br><br>
+        <div>
+            <label for="orderNotes">Special Instructions (optional):</label><br>
+            <textarea id="orderNotes" name="notes" rows="2" cols="40" placeholder="..." maxlength="65"></textarea>
+        </div>
+        <input type="submit" value="Place Order" class="submit-button">
+    </form>
+</div>
+
+<script>
+    // Function to fetch available toast types and populate the select options
+    function fetchAvailableToastTypes() {
+        return fetch('/api/toast-types')
+            .then(response => response.json())
+            .then(toastTypes => {
+                return toastTypes;
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        const toastOrdersContainer = document.getElementById('toastOrders');
+        let orderCount = 0;
+        let totalQuantity = 0;
+
+        // Fetch available toast types
+        const availableToastTypes = await fetchAvailableToastTypes();
+
+        function createToastOrderSection() {
+            if (totalQuantity >= 6) {
+                alert("Maximum total toast per order is 6.");
+                return;
+            }
+
+            orderCount++;
+            const div = document.createElement('div');
+            div.className = 'toast-order';
+            div.innerHTML = `
+                <label for="toastType${orderCount}">Toast ${orderCount}:</label>
+                <select id="toastType${orderCount}" name="toastType${orderCount}">
+                    ${availableToastTypes.map(type => `<option value="${type.code}">${type.type}</option>`).join('')}
+                </select>
+                <input type="number" id="quantity${orderCount}" name="quantity${orderCount}" min="1" max="3" value="1" onchange="updateTotalQuantity()">
+                <button type="button" class="remove-button" onclick="removeToastOrderSection(this, ${orderCount})">Remove</button>
+            `;
+            return div;
+        }
+
+        function updateTotalQuantity() {
+            totalQuantity = 0;
+            document.querySelectorAll('.toast-order input[type=number]').forEach(input => {
+                totalQuantity += parseInt(input.value);
+            });
+            if (totalQuantity > 6) {
+                alert("Maximum total toast per order is 6. Please adjust your quantities.");
+                return false;
+            }
+            return true;
+        }
+
+        document.getElementById('addToastButton').addEventListener('click', function() {
+            if(updateTotalQuantity()) {
+                toastOrdersContainer.appendChild(createToastOrderSection());
+            }
+        });
+
+        window.removeToastOrderSection = function(button, orderId) {
+            button.parentElement.remove();
+            updateTotalQuantity();
+        }
+
+        toastOrdersContainer.appendChild(createToastOrderSection());
+    });
+
+    // Function to check order-taking status
+    function isOrderTakingEnabled() {
+        return fetch('/api/get-order-taking-state')
+            .then(response => response.json())
+            .then(data => {
+                return data.value === '1'; // Assuming '1' means enabled
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                return false; // Assume order taking is disabled if there's an error
+        });
+}
+
+// Modify form submit handler
+document.getElementById('orderForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    isOrderTakingEnabled().then(enabled => {
+        if (!enabled) {
+            alert('Order taking is currently disabled. Please try again later.');
+            return;
+        }
+
+        const formData = new FormData(this);
+        const data = {};
+        formData.forEach((value, key) => { data[key] = value; });
+
+        fetch('/api/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                window.location.href = 'confirmation.html?orderId=' + data.orderId;
+            } else {
+                alert('There was an error placing your order.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+</body>
+</html>

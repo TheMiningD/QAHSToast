@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QAHS Toast</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 50px;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+       .button.disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Welcome to Toast Tuesday!</h1>
+    <a href="order.html" class="button" id="orderToastButton">Order Toast</a>
+    <p id="orderStatusMessage" style="display: none; color: red; margin-top: 20px;"></p> <!-- Message placeholder -->
+    <a href="https://forms.gle/iNoRD4FrYDR5Cm1v6" class="button">Queue Music</a>
+</div>
+
+
+<script>
+    function checkOrderTakingStatus() {
+        fetch('/api/get-order-taking-state') // Replace with the correct endpoint
+        .then(response => response.json())
+        .then(data => {
+            const orderButton = document.getElementById('orderToastButton');
+            const orderStatusMessage = document.getElementById('orderStatusMessage');
+            if (data.value === '0') { // Assuming '0' means order taking is disabled
+                orderButton.classList.add('disabled');
+                orderButton.href = '#';
+                orderStatusMessage.style.display = 'block'; // Show the message
+                orderStatusMessage.textContent = 'Toast isn\'t on right now! See you on Tuesday :)';
+            } else {
+                orderStatusMessage.style.display = 'none'; // Hide the message
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        checkOrderTakingStatus();
+    });
+</script>
+
+</body>
+</html>
