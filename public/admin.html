@@ -129,7 +129,6 @@
 </div>
 
 <script>
-    // For /api/toggle-order-taking
    document.getElementById('toggleOrderTaking').addEventListener('click', function() {
     fetch('/api/toggle-order-taking', {
         method: 'POST'
@@ -151,7 +150,7 @@
     .catch(error => console.error('Error:', error));
 });
 
-   // For /api/update-order-ready-time
+
    document.getElementById('updateOrderReadyTime').addEventListener('click', function() {
        const newTime = document.getElementById('orderReadyTime').value;
        console.log(newTime);
@@ -175,7 +174,7 @@
        .catch(error => console.error('Error:', error));
    });
 function fetchOrderTakingState() {
-    fetch('/api/get-order-taking-state') // Replace with your actual API endpoint
+    fetch('/api/get-order-taking-state')
     .then(response => response.json())
     .then(data => {
         const orderTakingButton = document.getElementById('toggleOrderTaking');
@@ -330,8 +329,8 @@ fetchToastTypes();
 
     setInterval(() => {
     fetchOrders();
-    fetchAverageServeTime(); // If you also want to update the average serve time periodically
-}, 500); // Poll every 30 seconds, adjust as needed
+    fetchAverageServeTime();
+}, 500); // Polling every 500ms
 
 
 

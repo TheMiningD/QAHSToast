@@ -22,7 +22,7 @@
             box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
             border-radius: 5px;
             background-color: white;
-            text-align: center; /* Ensure text is centered within the container */
+            text-align: center;
         }
         .countdown {
             font-size: 24px;
@@ -58,7 +58,7 @@
 <div class="container">
     <h1>Your Order is Confirmed!</h1>
     <p id="orderDetails">Fetching order details...</p>
-    <div id="orderSummary" class="order-summary">Order Summary:</div> <!-- Order summary will be added here -->
+    <div id="orderSummary" class="order-summary">Order Summary:</div>
     <div class="countdown">
         <p>Your order will be ready in <span id="timer">60</span> seconds.</p>
     </div>
@@ -101,7 +101,7 @@ fetch('/api/get-order-ready-time')
             console.error('Error:', error);
             // Fallback to default time or show error
             const countdownDisplay = document.querySelector('.countdown p');
-            startCountdown(60, countdownDisplay); // Default to 60 seconds or handle error differently
+            startCountdown(60, countdownDisplay);
         });
 
 

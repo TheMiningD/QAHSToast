@@ -9,8 +9,8 @@ app.use(express.urlencoded({ extended: true }));
 // MySQL connection setup
 const connection = mysql.createConnection({
     host: 'localhost',
-    user: 'admin', // Your MySQL username
-    password: 'admin', // Your MySQL password for the 'admin' user
+    user: 'admin',
+    password: 'admin',
     database: 'qahs_toast'
 });
 
@@ -131,7 +131,7 @@ app.post('/api/update-order-ready-time', (req, res) => {
     connection.query('UPDATE settings SET value = ? WHERE `key` = "orderReadyTime"', [newTime], (err, result) => {
         if (err) {
             console.error('Error updating order ready time:', err);
-            return res.status(500).send('Error: ' + err.message);  // Send back the error message
+            return res.status(500).send('Error: ' + err.message);
         }
         res.json({ success: true, message: 'Order ready time updated' });
     });
@@ -142,7 +142,7 @@ app.post('/api/update-order-ready-time', (req, res) => {
 
 // Endpoint to serve an order
 app.post('/api/serve-order', (req, res) => {
-    const { orderId } = req.body; // Make sure to validate and sanitize this input
+    const { orderId } = req.body;
 
     connection.beginTransaction((err) => {
         if (err) { throw err; }

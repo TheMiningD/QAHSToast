@@ -40,12 +40,12 @@
 
 <script>
     function checkOrderTakingStatus() {
-        fetch('/api/get-order-taking-state') // Replace with the correct endpoint
+        fetch('/api/get-order-taking-state')
         .then(response => response.json())
         .then(data => {
             const orderButton = document.getElementById('orderToastButton');
             const orderStatusMessage = document.getElementById('orderStatusMessage');
-            if (data.value === '0') { // Assuming '0' means order taking is disabled
+            if (data.value === '0') {
                 orderButton.classList.add('disabled');
                 orderButton.href = '#';
                 orderStatusMessage.style.display = 'block'; // Show the message
