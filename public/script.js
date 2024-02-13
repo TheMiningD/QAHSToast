@@ -4,6 +4,7 @@ const clientSecret = 'a1db766b056a403fbeefd6469ef6c25a';
 let selectedSong = null;
 
 
+
 async function getToken() {
     const result = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
