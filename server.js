@@ -49,8 +49,6 @@ function initializeDataFile() {
 const app = express();
 app.use(bodyParser.json());
 
-const dataFilePath = 'data.json';
-
 function readData() {
     try {
         const fileContent = fs.readFileSync(dataFilePath, 'utf8');
