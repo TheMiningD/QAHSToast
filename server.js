@@ -1,10 +1,116 @@
+require('dotenv').config();
 const express = require('express');
+const bodyParser = require('body-parser');
 const mysql = require('mysql');
-const app = express();
-const port = 3000;
+const SpotifyWebApi = require('spotify-web-api-node');
+const fs = require('fs');
+const refreshFilePath = 'refreshToken.json';
+const fetch = require('node-fetch');
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+const app = express();
+app.use(bodyParser.json());
+
+// Spotify API setup
+const spotifyApi = new SpotifyWebApi({
+    clientId: process.env.SPOTIFY_CLIENT_ID,
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    redirectUri: process.env.REDIRECT_URI
+});
+
+// Spotify playlist ID for "Toast Tunes"
+const playlistId = '7wScP4Wjs5yJ1WLDhdsSI8';
+
+let accessTokenExpiry = 0;
+
+async function refreshAccessToken() {
+    try {
+        console.log('Starting to refresh access token...');
+        const fileContent = fs.readFileSync(refreshFilePath, 'utf8');
+        const { refresh_token } = JSON.parse(fileContent);
+        spotifyApi.setRefreshToken(refresh_token);
+
+        console.log('Calling Spotify API to refresh the token...');
+        const data = await spotifyApi.refreshAccessToken();
+        console.log('Spotify API response:', data.body);
+
+        spotifyApi.setAccessToken(data.body['access_token']);
+        fs.writeFileSync(refreshFilePath, JSON.stringify({ refresh_token }), 'utf8');
+        console.log('Access token refreshed and set');
+    } catch (err) {
+        console.error('Error while trying to refresh access token:', err);
+    }
+}
+
+app.post('/add-to-playlist', async (req, res) => {
+    try {
+        await refreshAccessToken();
+        console.log('Adding track to playlist...');
+        const trackId = req.body.trackId;
+        const trackUri = `spotify:track:${trackId}`;
+
+        // Add track to playlist
+        await spotifyApi.addTracksToPlaylist(playlistId, [trackUri]);
+        console.log('Track added to playlist', trackId);
+
+        // Add track to user's queue
+        const accessToken = spotifyApi.getAccessToken(); // Get the access token
+        await addToQueue(trackUri, accessToken);
+
+        res.send('Track added to playlist and queued');
+    } catch (err) {
+        console.error('Error in adding track to playlist or queuing', err);
+        res.status(500).send('Error processing your request');
+    }
+});
+
+
+// Route to find the position of a song in the queue
+app.get('/findPositionInQueue/:trackId', async (req, res) => {
+    try {
+        await refreshAccessToken(); // Refresh token before making the API call
+        const response = await fetch('https://api.spotify.com/v1/me/player/queue', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + spotifyApi.getAccessToken() }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch the queue: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Check if the queue contains the specified track
+        if (data && data.queue) {
+            const trackIndex = data.queue.findIndex(item => item.id === req.params.trackId);
+            res.json({ position: trackIndex >= 0 ? trackIndex + 1 : -1 });
+        } else {
+            res.status(404).send('Queue is empty or not structured as expected');
+        }
+    } catch (error) {
+        console.error('Error finding song in queue:', error);
+        res.status(500).send('Error finding song in queue');
+    }
+});
+
+
+async function addToQueue(trackUri, accessToken) {
+    try {
+        const response = await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(trackUri)}`, { //not sure why this needs the full thing, breaks without it
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to queue track: ${response.statusText}`);
+        }
+
+        console.log('Track queued successfully');
+    } catch (err) {
+        console.error('Error adding track to queue', err);
+        throw err; // Re-throw the error to be caught by the caller
+    }
+}
 
 // MySQL connection setup
 const connection = mysql.createConnection({
@@ -192,6 +298,25 @@ app.get('/api/toast-types', (req, res) => {
     });
 });
 
+
+app.get('/callback', async (req, res) => {
+    const code = req.query.code;
+    try {
+        const data = await spotifyApi.authorizationCodeGrant(code);
+        const { access_token, refresh_token } = data.body;
+        spotifyApi.setAccessToken(access_token);
+
+        fs.writeFileSync(refreshFilePath, JSON.stringify({ refresh_token }), 'utf8');
+
+        res.redirect('/music.html');
+    } catch (err) {
+        console.error('Error during authorization', err);
+        res.status(500).send('Authorization error');
+    }
+});
+
+
+
 app.post('/api/add-toast-type', (req, res) => {
     const { code, type } = req.body;
 
@@ -236,9 +361,9 @@ app.get('/5min-average', (req, res) => {
     );
 });
 
-// Static files middleware
 app.use(express.static('public'));
 
+const port = 3000;
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
