@@ -5,7 +5,46 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const fetch = require('node-fetch');
 const path = require('path');
+const dataFilePath = path.join(__dirname, 'data.json');
 
+
+const defaultToastTypes = [
+    { id: 3, type: "Cinnamon Sugar", available: true, code: "CS" },
+    { id: 12, type: "Vegemite", available: true, code: "V" },
+    { id: 13, type: "Honey", available: true, code: "H" },
+    { id: 16, type: "Raspberry Jam", available: true, code: "RJ" },
+    { id: 17, type: "Butter Only", available: true, code: "BO" },
+    { id: 18, type: "No Butter (Plain)", available: true, code: "P" }
+];
+
+function initializeDataFile() {
+    let data;
+    // Check if data.json exists
+    if (fs.existsSync(dataFilePath)) {
+        // Read the existing data
+        const fileContent = fs.readFileSync(dataFilePath, 'utf8');
+        data = JSON.parse(fileContent);
+
+        // Ensure all default toast types are included
+        defaultToastTypes.forEach(defaultType => {
+            if (!data.toast_types.some(type => type.id === defaultType.id)) {
+                data.toast_types.push(defaultType);
+            }
+        });
+
+    } else {
+        // Initialize data structure if file doesn't exist
+        data = {
+            orders: [],
+            settings: { orderTakingEnabled: "1", orderReadyTime: "300" },
+            served_orders: [],
+            toast_types: defaultToastTypes
+        };
+    }
+
+    // Write updated or initial data back to file
+    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2), 'utf8');
+}
 
 const app = express();
 app.use(bodyParser.json());
@@ -150,9 +189,32 @@ app.post('/api/serve-order', (req, res) => {
     }
 });
 
+app.post('/api/toggle-order-taking', (req, res) => {
+    const data = readData();
+    // Toggle the orderTakingEnabled setting
+    data.settings.orderTakingEnabled = data.settings.orderTakingEnabled === '1' ? '0' : '1';
+    writeData(data);
+    res.json({ success: true, message: 'Order taking toggled', newValue: data.settings.orderTakingEnabled });
+});
+
+app.get('/api/get-order-taking-state', (req, res) => {
+    const data = readData();
+    res.json({ value: data.settings.orderTakingEnabled || '0' });
+});
+
+app.get('/api/toast-types', (req, res) => {
+    const data = readData(); // Assume readData() is a function you've already defined to read your JSON data file
+    const availableToastTypes = data.toast_types.filter(type => type.available); // Filter for available toast types
+    res.json(availableToastTypes);
+});
+
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const port = 3000;
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
+initializeDataFile();
+
