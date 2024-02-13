@@ -5,7 +5,9 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const fetch = require('node-fetch');
 const path = require('path');
-const dataFilePath = path.join(__dirname, 'data.json');
+
+const dataFilePath = path.join('/tmp', 'data.json');
+
 
 
 const defaultToastTypes = [
