@@ -287,39 +287,52 @@ app.post('/api/update-order-ready-time', (req, res) => {
 app.post('/api/serve-order', (req, res) => {
     const { orderId } = req.body;
 
-    connection.beginTransaction((err) => {
-        if (err) { throw err; }
+    pool.getConnection((err, connection) => {
+        if (err) {
+            return res.status(500).send('Error getting connection from pool');
+        }
 
-        // Update the order with the served_at timestamp
-        executeQuery('UPDATE orders SET served_at = NOW() WHERE id = ?', [orderId], (error, results) => {
-            if (error) {
-                return connection.rollback(() => {
-                    throw error;
-                });
+        connection.beginTransaction(err => {
+            if (err) {
+                connection.release();
+                return res.status(500).send('Error starting transaction');
             }
 
-            // Move the order to the served_orders table
-executeQuery('INSERT INTO served_orders (id, name, order_details, created_at, served_at) SELECT id, name, order_details, created_at, NOW() FROM orders WHERE id = ?', [orderId], (error, results) => {
+            // Update the order with the served_at timestamp
+            connection.query('UPDATE orders SET served_at = NOW() WHERE id = ?', [orderId], (error, results) => {
                 if (error) {
                     return connection.rollback(() => {
-                        throw error;
+                        connection.release();
+                        return res.status(500).send('Error updating order');
                     });
                 }
 
-                executeQuery('DELETE FROM orders WHERE id = ?', [orderId], (error, results) => {
+                // Move the order to the served_orders table
+                connection.query('INSERT INTO served_orders (id, name, order_details, created_at, served_at) SELECT id, name, order_details, created_at, NOW() FROM orders WHERE id = ?', [orderId], (error, results) => {
                     if (error) {
                         return connection.rollback(() => {
-                            throw error;
+                            connection.release();
+                            return res.status(500).send('Error moving order to served');
                         });
                     }
-                    connection.commit((err) => {
-                        if (err) {
+
+                    connection.query('DELETE FROM orders WHERE id = ?', [orderId], (error, results) => {
+                        if (error) {
                             return connection.rollback(() => {
-                                throw err;
+                                connection.release();
+                                return res.status(500).send('Error deleting order');
                             });
                         }
-                        console.log('Order served and moved to served_orders table');
-                        res.json({ success: true, message: 'Order served' });
+                        connection.commit((err) => {
+                            if (err) {
+                                return connection.rollback(() => {
+                                    connection.release();
+                                    return res.status(500).send('Error committing transaction');
+                                });
+                            }
+                            connection.release();
+                            res.json({ success: true, message: 'Order served' });
+                        });
                     });
                 });
             });
