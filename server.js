@@ -34,6 +34,9 @@ const playlistId = '7wScP4Wjs5yJ1WLDhdsSI8';
 
 let accessTokenExpiry = 0;
 
+app.use(express.static('public'));
+
+
 async function refreshAccessToken() {
     try {
         // Retrieve refresh token from the database
@@ -364,8 +367,6 @@ app.get('/5min-average', (req, res) => {
         }
     );
 });
-
-app.use(express.static('public'));
 
 const port = 3000;
 app.listen(port, () => {
