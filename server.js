@@ -7,14 +7,50 @@ const fetch = require('node-fetch');
 
 const app = express();
 app.use(bodyParser.json());
+app.use(express.static('public'));
 
-// MySQL connection setup
-const connection = mysql.createConnection({
+const pool = mysql.createPool({
+    connectionLimit: 10,
     host: process.env.MYSQL_ADDON_HOST,
     user: process.env.MYSQL_ADDON_USER,
     password: process.env.MYSQL_ADDON_PASSWORD,
     database: process.env.MYSQL_ADDON_DB
 });
+
+function executeQuery(sql, params, callback) {
+    pool.getConnection(function(err, connection) {
+        if (err) {
+            connection.release();
+            callback(err, null);
+            throw err;
+        }
+
+        connection.query(sql, params, function(error, results, fields) {
+            connection.release();
+            if (error) {
+                if (error.code === 'PROTOCOL_CONNECTION_LOST') {
+                    console.error('Database connection was closed.');
+                } else if (error.code === 'ER_CON_COUNT_ERROR') {
+                    console.error('Database has too many connections.');
+                } else if (error.code === 'ECONNREFUSED') {
+                    console.error('Database connection was refused.');
+                } else {
+                    console.error('Error executing query:', error);
+                }
+                callback(error, null);
+            } else {
+                callback(null, results);
+            }
+        });
+
+        connection.on('error', function(err) {
+            connection.release();
+            console.error('DB error event:', err);
+            callback(err, null);
+        });
+    });
+}
+
 
 // Connect to MySQL Database
 connection.connect((err) => {
@@ -34,13 +70,10 @@ const playlistId = '7wScP4Wjs5yJ1WLDhdsSI8';
 
 let accessTokenExpiry = 0; //ignore
 
-app.use(express.static('public'));
-
-
 async function refreshAccessToken() {
     try {
         // Retrieve refresh token from the database
-        connection.query('SELECT value FROM settings WHERE `key` = "refreshToken"', async (err, results) => {
+        executeQuery('SELECT value FROM settings WHERE `key` = "refreshToken"', async (err, results) => {
             if (err) throw err;
             const refresh_token = results[0].value;
             spotifyApi.setRefreshToken(refresh_token);
@@ -49,7 +82,7 @@ async function refreshAccessToken() {
             spotifyApi.setAccessToken(data.body['access_token']);
 
             // Update refresh token in the database
-            connection.query('UPDATE settings SET value = ? WHERE `key` = "refreshToken"', [data.body['refresh_token']], (err, results) => {
+            executeQuery('UPDATE settings SET value = ? WHERE `key` = "refreshToken"', [data.body['refresh_token']], (err, results) => {
                 if (err) throw err;
                 console.log('Access token refreshed and set in the database');
             });
@@ -146,7 +179,7 @@ app.post('/api/order', (req, res) => {
     const detailsToStore = Object.keys(orderDetails).length === 0 ? '{}' : JSON.stringify(orderDetails);
 
     const query = 'INSERT INTO orders (name, order_details, notes) VALUES (?, ?, ?)';
-    connection.query(query, [name, detailsToStore, notes], (err, result) => {
+    executeQuery(query, [name, detailsToStore, notes], (err, result) => {
     console.log('Notes 2:', notes);
         if (err) {
             console.error('Error in inserting order:', err);
@@ -159,14 +192,14 @@ app.post('/api/order', (req, res) => {
 
 // Endpoint to retrieve all orders
 app.get('/api/orders', (req, res) => {
-    connection.query('SELECT * FROM orders', (err, results) => {
+    executeQuery('SELECT * FROM orders', (err, results) => {
         if (err) throw err;
         res.json(results);
     });
 });
 
 app.get('/api/get-order-ready-time', (req, res) => {
-    connection.query('SELECT value FROM settings WHERE `key` = "orderReadyTime"', (err, results) => {
+    executeQuery('SELECT value FROM settings WHERE `key` = "orderReadyTime"', (err, results) => {
         if (err) {
             console.error('Error fetching order ready time:', err);
             return res.status(500).send('Error fetching order ready time');
@@ -181,7 +214,7 @@ app.get('/api/get-order-ready-time', (req, res) => {
 
 
 app.get('/api/get-order-taking-state', (req, res) => {
-    connection.query('SELECT value FROM settings WHERE `key` = "orderTakingEnabled"', (err, results) => {
+    executeQuery('SELECT value FROM settings WHERE `key` = "orderTakingEnabled"', (err, results) => {
         if (err) {
             return res.status(500).send('Error fetching order taking status');
         }
@@ -196,7 +229,7 @@ app.get('/api/get-order-taking-state', (req, res) => {
 app.get('/api/order/:orderId', (req, res) => {
     const orderId = req.params.orderId;
 
-    connection.query('SELECT * FROM orders WHERE id = ?', [orderId], (err, results) => {
+    executeQuery('SELECT * FROM orders WHERE id = ?', [orderId], (err, results) => {
         if (err) {
             res.status(500).send('Error retrieving order');
         } else {
@@ -212,7 +245,7 @@ app.get('/api/order/:orderId', (req, res) => {
 // Endpoint to toggle order taking status
 app.post('/api/toggle-order-taking', (req, res) => {
     // Fetch the current value
-    connection.query('SELECT value FROM settings WHERE `key` = "orderTakingEnabled"', (err, results) => {
+    executeQuery('SELECT value FROM settings WHERE `key` = "orderTakingEnabled"', (err, results) => {
         if (err) {
             console.error('Error fetching order taking status:', err);
             return res.status(500).send('Error fetching order taking status');
@@ -226,7 +259,7 @@ app.post('/api/toggle-order-taking', (req, res) => {
         const newValue = currentValue === '1' ? '0' : '1';
 
         // Update with the new value
-        connection.query('UPDATE settings SET value = ? WHERE `key` = "orderTakingEnabled"', [newValue], (err, result) => {
+        executeQuery('UPDATE settings SET value = ? WHERE `key` = "orderTakingEnabled"', [newValue], (err, result) => {
             if (err) {
                 console.error('Error updating order taking status:', err);
                 return res.status(500).send('Error updating order taking status');
@@ -238,7 +271,7 @@ app.post('/api/toggle-order-taking', (req, res) => {
 
 app.post('/api/update-order-ready-time', (req, res) => {
     const { newTime } = req.body;
-    connection.query('UPDATE settings SET value = ? WHERE `key` = "orderReadyTime"', [newTime], (err, result) => {
+    executeQuery('UPDATE settings SET value = ? WHERE `key` = "orderReadyTime"', [newTime], (err, result) => {
         if (err) {
             console.error('Error updating order ready time:', err);
             return res.status(500).send('Error: ' + err.message);
@@ -258,7 +291,7 @@ app.post('/api/serve-order', (req, res) => {
         if (err) { throw err; }
 
         // Update the order with the served_at timestamp
-        connection.query('UPDATE orders SET served_at = NOW() WHERE id = ?', [orderId], (error, results) => {
+        executeQuery('UPDATE orders SET served_at = NOW() WHERE id = ?', [orderId], (error, results) => {
             if (error) {
                 return connection.rollback(() => {
                     throw error;
@@ -266,14 +299,14 @@ app.post('/api/serve-order', (req, res) => {
             }
 
             // Move the order to the served_orders table
-connection.query('INSERT INTO served_orders (id, name, order_details, created_at, served_at) SELECT id, name, order_details, created_at, NOW() FROM orders WHERE id = ?', [orderId], (error, results) => {
+executeQuery('INSERT INTO served_orders (id, name, order_details, created_at, served_at) SELECT id, name, order_details, created_at, NOW() FROM orders WHERE id = ?', [orderId], (error, results) => {
                 if (error) {
                     return connection.rollback(() => {
                         throw error;
                     });
                 }
 
-                connection.query('DELETE FROM orders WHERE id = ?', [orderId], (error, results) => {
+                executeQuery('DELETE FROM orders WHERE id = ?', [orderId], (error, results) => {
                     if (error) {
                         return connection.rollback(() => {
                             throw error;
@@ -296,7 +329,7 @@ connection.query('INSERT INTO served_orders (id, name, order_details, created_at
 
 // Fetch all available toast types
 app.get('/api/toast-types', (req, res) => {
-    connection.query('SELECT * FROM toast_types WHERE available = TRUE', (err, results) => {
+    executeQuery('SELECT * FROM toast_types WHERE available = TRUE', (err, results) => {
         if (err) return res.status(500).send('Error fetching toast types');
         res.json(results);
     });
@@ -312,7 +345,7 @@ app.get('/callback', async (req, res) => {
         spotifyApi.setAccessToken(access_token);
 
         // Store the refresh token in your database instead of a file
-        connection.query('INSERT INTO settings (`key`, value) VALUES ("refreshToken", ?) ON DUPLICATE KEY UPDATE value = ?', [refresh_token, refresh_token], (err, results) => {
+        executeQuery('INSERT INTO settings (`key`, value) VALUES ("refreshToken", ?) ON DUPLICATE KEY UPDATE value = ?', [refresh_token, refresh_token], (err, results) => {
             if (err) throw err;
             res.redirect('/music.html');
         });
@@ -333,7 +366,7 @@ app.post('/api/add-toast-type', (req, res) => {
     }
 
     // Insert the new toast type with its code
-    connection.query('INSERT INTO toast_types (code, type) VALUES (?, ?)', [code, type], (err, results) => {
+    executeQuery('INSERT INTO toast_types (code, type) VALUES (?, ?)', [code, type], (err, results) => {
         if (err) {
             console.error('Error adding toast type:', err);
             return res.status(500).send('Error adding toast type');
@@ -346,7 +379,7 @@ app.post('/api/add-toast-type', (req, res) => {
 // Remove a toast type
 app.post('/api/remove-toast-type', (req, res) => {
     const { id } = req.body;
-    connection.query('UPDATE toast_types SET available = FALSE WHERE id = ?', [id], (err, results) => {
+    executeQuery('UPDATE toast_types SET available = FALSE WHERE id = ?', [id], (err, results) => {
         if (err) return res.status(500).send('Error removing toast type');
         res.json({ success: true, message: 'Toast type removed' });
     });
@@ -354,7 +387,7 @@ app.post('/api/remove-toast-type', (req, res) => {
 
 
 app.get('/5min-average', (req, res) => {
-    connection.query(
+    executeQuery(
         'SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, served_at)) AS average_serve_time FROM served_orders WHERE served_at >= NOW() - INTERVAL 5 MINUTE',
         (err, results) => {
             if (err) {
