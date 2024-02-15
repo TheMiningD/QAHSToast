@@ -51,13 +51,6 @@ function executeQuery(sql, params, callback) {
     });
 }
 
-
-// Connect to MySQL Database
-connection.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to MySQL Database.');
-});
-
 // Spotify API setup
 const spotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTIFY_CLIENT_ID,
