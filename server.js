@@ -32,7 +32,7 @@ const spotifyApi = new SpotifyWebApi({
 // Spotify playlist ID for "Toast Tunes"
 const playlistId = '7wScP4Wjs5yJ1WLDhdsSI8';
 
-let accessTokenExpiry = 0;
+let accessTokenExpiry = 0; //ignore
 
 app.use(express.static('public'));
 
