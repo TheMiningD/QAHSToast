@@ -126,19 +126,6 @@ async function addToQueue(trackUri, accessToken) {
     }
 }
 
-// MySQL connection setup
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'admin',
-    password: 'admin',
-    database: 'qahs_toast'
-});
-
-connection.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to MySQL Database.');
-});
-
 // Endpoint to handle POST requests for new orders
 app.post('/api/order', (req, res) => {
     const { name, notes } = req.body;
