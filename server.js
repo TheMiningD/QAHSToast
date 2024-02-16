@@ -471,7 +471,7 @@ app.get("/5min-average", (req, res) => {
   );
 });
 
-const port = 3000;
+const port = 8080;
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
