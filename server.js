@@ -4,6 +4,8 @@ const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const SpotifyWebApi = require("spotify-web-api-node");
 const fetch = require("node-fetch");
+const cors = require('cors');
+app.use(cors());
 
 const app = express();
 app.use(bodyParser.json());
