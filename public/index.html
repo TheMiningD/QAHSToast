@@ -27,22 +27,17 @@
         background-color: #ccc;
         cursor: not-allowed;
     }
-       #loading {
-        display: none;
-        text-align: center;
-        padding: 10px;
-        margin-top: 10px;
-        border: 1px solid #ccc;
-    }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Welcome to Toast Friday!</h1>
+    <h1>Welcome to Toast Tuesday!</h1>
     <a href="order.html" class="button" id="orderToastButton">Order Toast</a>
     <p id="orderStatusMessage" style="display: none; color: red; margin-top: 20px;"></p> <!-- Message placeholder -->
-    <a href="music.html" class="button">Queue Music</a>
+    <a href="https://forms.gle/iNoRD4FrYDR5Cm1v6" class="button">Queue Music</a>
 </div>
+
+
 <script>
     function checkOrderTakingStatus() {
         fetch('/api/get-order-taking-state')
@@ -65,30 +60,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         checkOrderTakingStatus();
     });
-
-window.onload = function() {
-    // Check if the 'queued' query parameter is present
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('queued') === 'true') {
-        const position = urlParams.get('position'); // Get the position from the URL
-        // Display the 'Song queued' message with the position
-        displayQueuedMessage(position);
-    }
-};
-
-function displayQueuedMessage(position) {
-    // Create a div to show the message
-    const messageDiv = document.createElement('div');
-    // Update the text content to include the position if it's available
-    messageDiv.textContent = position ? `Song queued! It is currently in position ${position} in the queue.` : 'Song queued successfully!';
-    messageDiv.style.color = 'green';
-    messageDiv.style.fontWeight = 'bold';
-    messageDiv.style.marginTop = '10px';
-    document.body.appendChild(messageDiv);
-
-    // Optional: remove the query parameter from the URL
-    history.replaceState(null, null, window.location.pathname);
-}
 </script>
 
 </body>
